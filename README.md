@@ -50,3 +50,4 @@ fighter basic stats: https://krazete.github.io/sgm/index.html
 move damage stats: https://docs.google.com/spreadsheets/d/1HnPKDCrCi73n0lppFs_le7-Z_jJKU8ZZsq-5d7fhj-g/edit#gid=626943306
 
 move calculation: https://docs.google.com/spreadsheets/d/1JlVUjz67OnG3b_lO4MHFqo9uAD3kUZBNlw2Niy5_0tc/edit#gid=0
+

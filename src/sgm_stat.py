@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import Counter
         
 class Move():
     MOVE_BASE_6 = 6 # base move stat for atk, hp, blockeff and cresist
@@ -16,46 +17,42 @@ class Move():
 
     def __init__(self) -> None:
         self.stat_slot = 0
-        self.stat = {f'empty{k}' : 1 for k in range(self.STAT_SLOT)}
+        self.stat = {f'empty{k}' : 0 for k in range(self.STAT_SLOT)}
         self.statResult = dict()
-        self.rerollTime = 0
+        self.rerollTime = copy.deepcopy(self.MAXLVLTIME)
 
-  
     def addStat(self, stat:str):
         if stat not in self.STAT_LIST:
-            print(f"{stat} not in stat list, abort")
-            return -1
+            return f"{stat} not in stat list, abort"
 
         for k in self.stat:
             if k == stat:
-                print(f"repeated stat{stat} adding, abort")
-                return -2
+                return f"repeated stat{stat} adding, abort"
 
             if 'empty' in k:
                 self.stat.pop(k)
                 self.stat[stat] = 1
-                return 0
+                return
             
-        print(f"move stat slot full:{self.stat}, unable to add stat:{stat}")
+        return f"move stat slot full:{self.stat}, unable to add stat:{stat}"
 
-    def addReroll(self, stat:str):
-        if stat not in self.stat.keys():
-            print(f"{stat} not in move stat, abort")
-            return -1
-
-        if self.rerollTime >= self.MAXLVLTIME:
-            print("move lvl maxed, unable to add reroll")
-            return -2
+    def setStatWithReroll(self, stat:str, reroll:int):
+        self.addStat(stat)
         
-        self.rerollTime += 1
-        self.stat[stat] += 1
-
+        if self.rerollTime - reroll >= 0:
+            self.rerollTime -= reroll
+            self.stat[stat] = reroll
+        else:
+            self.stat[stat] = self.rerollTime
+            self.rerollTime = 0
+            return "move lvl maxed, unable to add reroll"
 
     def getMoveStat(self):
         self.statResult = copy.deepcopy(self.stat)
-        for k in self.statResult:
+        for k in list(self.statResult.keys()):
             if 'empty' in k:
-                print(f"incomplete set moves detected")
+                self.statResult.pop(k)
+                continue
 
             if k in self.STAT_START_WITH_6:
                 self.statResult[k] = self.statResult[k]*self.MOVE_UPGRAGE + self.MOVE_BASE_6
@@ -67,21 +64,19 @@ class Move():
 
 class MoveStatistics():
     def __init__(self) -> None:
-        self.totalScale = 0
         pass
 
-
-    def getTotalScale(self):
-
-        return self.totalScale
+    def getTotalScale(self, name):
+        totalScale = 15 # Filia L1
+        return totalScale
 
 
 class FighterStatistics():
     def __init__(self) -> None:
         pass
 
-    def getBasicStat(self):
-        atk = 0
+    def getBasicStat(self, name):
+        atk = 15591 # Djinn MAX LVL
         hp = 0
         ele = 'fire'
 
@@ -99,8 +94,17 @@ class FighterStatistics():
     def getPABonus(self, name):
         pa = 0
         return pa
+    
+    def getFighterNameList(self):
+        names = list()
+        names.append('Default')
+        names.append('Djinn')
+
+        return names
+
         
 class Fighter():
+    EMPTY_STAT = {'ATK' : 0, 'HP' : 0, 'PIERCE' : 0, 'ACC' : 0, 'ELEBONUS' : 0, 'TAGCD' : 0, 'BLKEFF' :0, 'CRATE' : 0, 'CDMG' : 0, 'DEF' : 0, 'RESIST' : 0, 'ELEPENAL' : 0, 'SMCD' : 0, 'METER' : 0, 'CRESIST' : 0}
 
     BASE_STAT = {'ATK' : 0, 'HP' : 0, 'PIERCE' : 0, 'ACC' : 0, 'ELEBONUS' : 20, 'TAGCD' : 0, 'BLKEFF' :0, 'CRATE' : 5, 'CDMG' : 20, 'DEF' : 0, 'RESIST' : 0, 'ELEPENAL' : 20, 'SMCD' : 0, 'METER' : 0, 'CRESIST' : 0}
 
@@ -108,27 +112,24 @@ class Fighter():
 
     CAP_STAT = {'ATK' : np.Infinity, 'HP' : np.Infinity, 'PIERCE' : 50, 'ACC' : 50, 'ELEBONUS' : 50, 'TAGCD' : 50, 'BLKEFF' : 100, 'CRATE' : 100, 'CDMG' : 200, 'DEF' : 50, 'RESIST' : 50, 'ELEPENAL' : 0, 'SMCD' : 50, 'METER' : 100, 'CRESIST' : 100}
 
+    STAT_DEF = ['BLKEFF', 'DEF', 'RESIST', 'CRESIST']
+
     MAX_MOVE_NUMBER = 5
     def __init__(self,
-                 name = 'none',
-                 stat_type = 0,
+                 name:str,
+                 fighterStatApi:FighterStatistics,
+                 stat_type = 1,
                  ) -> None:
         """
         stat_type: initial fighter stat types: 0 - all zeros stat, 1 - base stat, 2 - skill tree invested stat, 3 - cap stat
         """
-        
+        self.stat_type = stat_type
         self.stat = copy.deepcopy(self.BASE_STAT)
-        if stat_type == 0:
-            for k in self.stat:
-                self.stat[k] = 0
-        elif stat_type == 2:
-            self.stat = copy.deepcopy(self.INV_STAT)
-        elif stat_type == 3:
-            self.stat = copy.deepcopy(self.CAP_STAT)
 
         self.name = name
-        self.fsManage = FighterStatistics()
-        self.ATK_RAW , self.HP_RAW, self.ELEMENT = self.fsManage.getBasicStat()
+        self.fsManage = fighterStatApi
+        self.ATK_RAW , self.HP_RAW, self.ELEMENT = self.fsManage.getBasicStat(name)
+        self.moveSet = [0 for x in range(5)]
 
         # # tunable
         # self.ATK_RAW = atk_in_kilo
@@ -138,21 +139,46 @@ class Fighter():
         # self.is_eleAdv = is_eleAdv
         # self.is_dMark = is_dMark
 
-    def equipMove(self, move:Move):
-        if len(self.moveSet) >= self.MAX_MOVE_NUMBER:
-            print("too much moves")
+    def equipMove(self, move:Move, index:int):
+        if index >= self.MAX_MOVE_NUMBER-1:
+            return "exceeded index for move"
 
-        if move.statResult:
-            self.moveSet.append(move)
-            for k,v in move.statResult.items():
-                if k == 'ATK' or 'HP':
-                    self.stat[k] += v
+        self.moveSet[index] = copy.deepcopy(move)
+    
+    def getStats(self):
+        # move stats sumup
+        moveStats = copy.deepcopy(self.EMPTY_STAT)
+        for move in self.moveSet:
+            if move != 0:
+                move.getMoveStat()
+                if move.statResult:    
+                    for k,v in move.statResult.items():
+                        moveStats[k] += v
                 else:
-                    sum = self.stat[k] + v
-                    self.stat[k] = sum if sum < self.CAP_STAT[k] else self.CAP_STAT[k]
-                    
+                    print("empty move")
+        
+        # add to fighter stat
+        if self.stat_type == 0:
+            selfStat = self.EMPTY_STAT
+        elif self.stat_type == 1:
+            selfStat = self.BASE_STAT
+        elif self.stat_type == 2:
+            selfStat = self.INV_STAT
+        elif self.stat_type == 3:
+            selfStat = self.CAP_STAT
+        self.stat = dict(Counter(moveStats)+Counter(selfStat))
+
+        # cap stats
+        for k,v in self.stat.items():         
+            if k != 'ATK' or k != 'HP':
+                self.stat[k] = v if v < self.CAP_STAT[k] else self.CAP_STAT[k]                        
+
+    def setStat(self, stat:str, value:int):
+        if stat in self.stat:
+            self.stat[stat] = value if value < self.CAP_STAT[stat] else self.CAP_STAT[stat] 
         else:
-            print("incomplete move")
+            return f'no stat named{stat}'
+
 
 class BuffStatistics():
     # debuff
@@ -188,11 +214,6 @@ class BuffStatistics():
         opponent_stat
 
 
-    def getBuffBonus(self):
-        bonus = 0
-        return bonus
-
-
 def elementCalculator(ele_fighter, ele_opponent):
     ELEMENT_LIST = {'fire' : 1000, 'wind' : 1010, 'water' : 1020, 'light' : 1, 'dark' : -1, 'neutral' : 0}
     
@@ -208,7 +229,6 @@ def elementCalculator(ele_fighter, ele_opponent):
         return -1 # the reverse in triple
     else:
         return 0
-
 
 
 class DamageCalculator():
@@ -231,11 +251,11 @@ class DamageCalculator():
         F = self.fighter
         D = self.opponent
         if F.name in self.BAD_FORMULA_FIGHTER_LIST:
-            atkDamageWithSaBonus = F.ATK_RAW*(F.fsManage.getSABonus()+100)/100.0 + F.stat['ATK']/100.0*F.ATK_RAW
+            atkDamageWithSaBonus = F.ATK_RAW*(F.fsManage.getSABonus(F.name)+100)/100.0 + F.stat['ATK']/100.0*F.ATK_RAW
         else:
-            atkDamageWithSaBonus = F.ATK_RAW*(F.stat['ATK'] + 100)/100.0*(F.fsManage.getSABonus() + 100)/100.0
+            atkDamageWithSaBonus = F.ATK_RAW*(F.stat['ATK'] + 100)/100.0*(F.fsManage.getSABonus(F.name) + 100)/100.0
 
-        moveScale = self.moveManage.getTotalScale()
+        moveScale = self.moveManage.getTotalScale(F.name)
         bonus = 100/100.0 #FIXME
         
         # crit part
@@ -256,99 +276,6 @@ class DamageCalculator():
         penetration = (100 + penetration)/100.0 if 'DEADEYE' in self.buffManage.buff else 1.0 
 
         # damage formula
-        damage = atkDamageWithSaBonus*moveScale*bonus*critExpect*elementEffect*penetration
+        self.damage = atkDamageWithSaBonus*moveScale*bonus*critExpect*elementEffect*penetration
 
-        return damage
-
-
-
-def getRandomColor():
-    return np.array((np.random.random(), np.random.random(), np.random.random())).reshape(1,-1)
-
-def rerollAssigner( times ):
-    basic = MOVE_BASE_STAT()
-    assert times in range(0, basic.MAXLVLTIME*basic.MAXMOVE+1), f'too many assigns{times}'
-
-    res = list()
-    for i in range(basic.MAXMOVE):
-        res.append( basic.MAXLVLTIME if times-basic.MAXLVLTIME>0 else times )
-        times -= basic.MAXLVLTIME
-        times = times if times > 0 else 0
-
-    #print(res)
-    return res
-
-def STAT2DMG(types):
-    basic = MOVE_BASE_STAT()
-    stat = list()
-    dmg = list()
-    OPPONENT_DEF = 50
-    OPPONENT_CRESIT = 0
-    # single stat evaluate
-    # # build is: atk
-    for i in range(basic.MAXLVLTIME*basic.MAXMOVE+1):
-        fighter = Fighter(15591, 75) # Filia Djinn with L1 against test partner
-        build = MoveSet_build()
-        stat.append(i)
-        for j in rerollAssigner(i):
-            if types == 'atk':
-                build.addMove(atk=j)
-            elif types == 'crate':
-                build.addMove(crate=j)
-            elif types == 'cdmg':
-                build.addMove(cdmg=j)
-            elif types == 'elebonus':
-                fighter.is_eleAdv = 1
-                build.addMove(elebouns=j)
-            elif types == 'pierce':
-                build.addMove(pierce=j)
-
-        fighter.getALL(move_atkP=build.ATK,
-                        move_pierce=build.PIERCE,
-                        move_crate=build.CRATE,
-                        move_cdmg=build.CDMG,
-                        move_elebouns=build.ELEBONUS)
-        dmg.append(fighter.damageFormulaGood(OPPONENT_DEF, OPPONENT_CRESIT))
-    return stat, dmg
-
-
-if __name__ == '__main__':
-    
-    # plot
-    plt.figure(figsize=(20, 10), dpi=100)
-
-    atk, dmg = STAT2DMG('atk')
-    plt.plot(atk, dmg, c='red', label='ATK')
-    plt.scatter(atk, dmg, c='red')
-    crate, dmg2 = STAT2DMG('crate')
-    plt.plot(crate, dmg2, c='blue', label='CRATE')
-    plt.scatter(crate, dmg2, c='blue')
-    cdmg, dmg3 = STAT2DMG('cdmg')
-    plt.plot(cdmg, dmg3, c='purple', label='CDMG')
-    plt.scatter(cdmg, dmg3, c='purple')
-    elebonus, dmg4 = STAT2DMG('elebonus')
-    plt.plot(elebonus, dmg4, c='green', label='ELEMENT_BONUS')
-    plt.scatter(elebonus, dmg4, c='green')
-    pierce, dmg5 = STAT2DMG('pierce')
-    plt.plot(pierce, dmg5, c='orange', label='PIERCE')
-    plt.scatter(pierce, dmg5, c='orange')
-
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.xlabel("STAT with defense 50% opponent in eleadvantage using D2", fontdict={'size': 16})
-    plt.ylabel("DMG", fontdict={'size': 16})
-    plt.title("Stat-damage benefit curve", fontdict={'size': 20})
-    plt.legend(loc='best')
-
-    # plt.text(x=atk[-1]*1.03, y=dmg[-1]*1.03, # text pos 
-    #      s='Max defense opponent', # content
-    #      fontdict=dict(fontsize=12, color='black',family='monospace',),
-    #      bbox={'facecolor': '#74C476', # fill
-    #           'edgecolor':'blue',# outline color
-    #            'alpha': 0.5, # transparent
-    #            'pad': 0.8,# text to outline distance
-    #            #'boxstyle':'sawtooth'
-    #           }
-         
-    #     )
-    plt.show()
-
+        return self.damage

@@ -12,7 +12,7 @@ def main_page():
 
     st.sidebar.success("Select a page above.")
 
-    f = open("../README.md")
+    f = open("README.md")
     content = f.read()
     st.markdown(content)
 

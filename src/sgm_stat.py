@@ -1,8 +1,14 @@
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
-from collections import Counter
-        
+
+
+def sum_dict(a:dict,b:dict) -> dict:
+    temp = dict()
+    for key in a.keys()| b.keys():
+        temp[key] = sum([d.get(key, 0) for d in (a, b)])
+    return temp
+
 class Move():
     MOVE_BASE_6 = 6 # base move stat for atk, hp, blockeff and cresist
     MOVE_BASE_3 = 3
@@ -17,47 +23,17 @@ class Move():
 
     def __init__(self) -> None:
         self.stat_slot = 0
-        self.stat = {f'empty{k}' : 0 for k in range(self.STAT_SLOT)}
+        self.stat = dict()
         self.statResult = dict()
         self.rerollTime = copy.deepcopy(self.MAXLVLTIME)
 
-    def addStat(self, stat:str):
-        if stat not in self.STAT_LIST:
-            return f"{stat} not in stat list, abort"
-
-        for k in self.stat:
-            if k == stat:
-                return f"repeated stat{stat} adding, abort"
-
-            if 'empty' in k:
-                self.stat.pop(k)
-                self.stat[stat] = 1
-                return
-            
-        return f"move stat slot full:{self.stat}, unable to add stat:{stat}"
-
-    def setStatWithReroll(self, stat:str, reroll:int):
-        self.addStat(stat)
-        
-        if self.rerollTime - reroll >= 0:
-            self.rerollTime -= reroll
-            self.stat[stat] = reroll
-        else:
-            self.stat[stat] = self.rerollTime
-            self.rerollTime = 0
-            return "move lvl maxed, unable to add reroll"
-
     def getMoveStat(self):
         self.statResult = copy.deepcopy(self.stat)
-        for k in list(self.statResult.keys()):
-            if 'empty' in k:
-                self.statResult.pop(k)
-                continue
-
+        for k in self.statResult:
             if k in self.STAT_START_WITH_6:
-                self.statResult[k] = self.statResult[k]*self.MOVE_UPGRAGE + self.MOVE_BASE_6
+                self.statResult[k] = self.stat[k]*self.MOVE_UPGRAGE + self.MOVE_BASE_6
             else:
-                self.statResult[k] = self.statResult[k]*self.MOVE_UPGRAGE + self.MOVE_BASE_3
+                self.statResult[k] = self.stat[k]*self.MOVE_UPGRAGE + self.MOVE_BASE_3
 
         return self.statResult
             
@@ -106,11 +82,11 @@ class FighterStatistics():
 class Fighter():
     EMPTY_STAT = {'ATK' : 0, 'HP' : 0, 'PIERCE' : 0, 'ACC' : 0, 'ELEBONUS' : 0, 'TAGCD' : 0, 'BLKEFF' :0, 'CRATE' : 0, 'CDMG' : 0, 'DEF' : 0, 'RESIST' : 0, 'ELEPENAL' : 0, 'SMCD' : 0, 'METER' : 0, 'CRESIST' : 0}
 
-    BASE_STAT = {'ATK' : 0, 'HP' : 0, 'PIERCE' : 0, 'ACC' : 0, 'ELEBONUS' : 20, 'TAGCD' : 0, 'BLKEFF' :0, 'CRATE' : 5, 'CDMG' : 20, 'DEF' : 0, 'RESIST' : 0, 'ELEPENAL' : 20, 'SMCD' : 0, 'METER' : 0, 'CRESIST' : 0}
+    BASE_STAT = {'ATK' : 0, 'HP' : 0, 'PIERCE' : 0, 'ACC' : 0, 'ELEBONUS' : 20, 'TAGCD' : 0, 'BLKEFF' :0, 'CRATE' : 5, 'CDMG' : 20, 'DEF' : 0, 'RESIST' : 0, 'ELEPENAL' : 0, 'SMCD' : 0, 'METER' : 0, 'CRESIST' : 0}
 
-    INV_STAT = {'ATK' : 0, 'HP' : 0, 'PIERCE' : 0, 'ACC' : 0, 'ELEBONUS' : 20, 'TAGCD' : 15, 'BLKEFF' : 15, 'CRATE' : 20, 'CDMG' : 35, 'DEF' : 0, 'RESIST' : 0, 'ELEPENAL' : 20, 'SMCD' : 15, 'METER' : 0, 'CRESIST' : 0}
+    INV_STAT = {'ATK' : 0, 'HP' : 0, 'PIERCE' : 0, 'ACC' : 0, 'ELEBONUS' : 20, 'TAGCD' : 15, 'BLKEFF' : 15, 'CRATE' : 20, 'CDMG' : 35, 'DEF' : 0, 'RESIST' : 0, 'ELEPENAL' : 0, 'SMCD' : 15, 'METER' : 0, 'CRESIST' : 0}
 
-    CAP_STAT = {'ATK' : np.Infinity, 'HP' : np.Infinity, 'PIERCE' : 50, 'ACC' : 50, 'ELEBONUS' : 50, 'TAGCD' : 50, 'BLKEFF' : 100, 'CRATE' : 100, 'CDMG' : 200, 'DEF' : 50, 'RESIST' : 50, 'ELEPENAL' : 0, 'SMCD' : 50, 'METER' : 100, 'CRESIST' : 100}
+    CAP_STAT = {'ATK' : np.Infinity, 'HP' : np.Infinity, 'PIERCE' : 50, 'ACC' : 50, 'ELEBONUS' : 50, 'TAGCD' : 50, 'BLKEFF' : 100, 'CRATE' : 100, 'CDMG' : 200, 'DEF' : 50, 'RESIST' : 50, 'ELEPENAL' : 20, 'SMCD' : 50, 'METER' : 100, 'CRESIST' : 100}
 
     STAT_DEF = ['BLKEFF', 'DEF', 'RESIST', 'CRESIST']
 
@@ -129,7 +105,8 @@ class Fighter():
         self.name = name
         self.fsManage = fighterStatApi
         self.ATK_RAW , self.HP_RAW, self.ELEMENT = self.fsManage.getBasicStat(name)
-        self.moveSet = [0 for x in range(5)]
+        self.moveSet = [0 for i in range(self.MAX_MOVE_NUMBER)]
+        self.moveSetFake = [0 for i in range(self.MAX_MOVE_NUMBER)]
 
         # # tunable
         # self.ATK_RAW = atk_in_kilo
@@ -140,33 +117,58 @@ class Fighter():
         # self.is_dMark = is_dMark
 
     def equipMove(self, move:Move, index:int):
-        if index >= self.MAX_MOVE_NUMBER-1:
-            return "exceeded index for move"
+        if index >= self.MAX_MOVE_NUMBER:
+            return f"exceeded index for move{index}"
 
         self.moveSet[index] = copy.deepcopy(move)
-    
+
+    def equipMoveFake(self, move:Move, index:int):
+        self.moveSetFake[index] = copy.deepcopy(move)
+
+    def getStatusFake(self):
+        # move stats sumup
+        moveStats = copy.deepcopy(self.EMPTY_STAT)
+        for move in self.moveSetFake:
+            if move != 0:
+                move.getMoveStat() 
+                for k,v in move.statResult.items():
+                    moveStats[k] += v
+
+        # add to fighter stat
+        if self.stat_type == 0:
+            selfStat = copy.deepcopy(self.EMPTY_STAT)
+        elif self.stat_type == 1:
+            selfStat = copy.deepcopy(self.BASE_STAT)
+        elif self.stat_type == 2:
+            selfStat = copy.deepcopy(self.INV_STAT)
+        elif self.stat_type == 3:
+            selfStat = copy.deepcopy(self.CAP_STAT)
+        self.stat = sum_dict(moveStats,selfStat)
+
+        # cap stats
+        for k,v in self.stat.items():         
+            if k != 'ATK' or k != 'HP':
+                self.stat[k] = v if v < self.CAP_STAT[k] else self.CAP_STAT[k]   
+
     def getStats(self):
         # move stats sumup
         moveStats = copy.deepcopy(self.EMPTY_STAT)
         for move in self.moveSet:
             if move != 0:
-                move.getMoveStat()
-                if move.statResult:    
-                    for k,v in move.statResult.items():
-                        moveStats[k] += v
-                else:
-                    print("empty move")
-        
+                move.getMoveStat() 
+                for k,v in move.statResult.items():
+                    moveStats[k] += v
+
         # add to fighter stat
         if self.stat_type == 0:
-            selfStat = self.EMPTY_STAT
+            selfStat = copy.deepcopy(self.EMPTY_STAT)
         elif self.stat_type == 1:
-            selfStat = self.BASE_STAT
+            selfStat = copy.deepcopy(self.BASE_STAT)
         elif self.stat_type == 2:
-            selfStat = self.INV_STAT
+            selfStat = copy.deepcopy(self.INV_STAT)
         elif self.stat_type == 3:
-            selfStat = self.CAP_STAT
-        self.stat = dict(Counter(moveStats)+Counter(selfStat))
+            selfStat = copy.deepcopy(self.CAP_STAT)
+        self.stat = sum_dict(moveStats,selfStat)
 
         # cap stats
         for k,v in self.stat.items():         
@@ -232,7 +234,7 @@ def elementCalculator(ele_fighter, ele_opponent):
 
 
 class DamageCalculator():
-    BAD_FORMULA_FIGHTER_LIST = ['Flytrap', 'Jaw Breaker', 'Purrminator']  # whose sa apply on base atk only
+    BAD_FORMULA_FIGHTER_LIST = ['Flytrap', 'Jawbreaker', 'Purrminator']  # whose sa apply on base atk only
 
     def __init__(self, 
                  fighter:Fighter,

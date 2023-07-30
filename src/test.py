@@ -5,7 +5,8 @@ import inspect
 import textwrap
 import pandas as pd
 import altair as alt
-#import sgm_stat as sgm
+import plotly.express as px
+import sgm_stat as sgm
 
 # with st.expander('Setup moves'):
 #     tab_moves = st.tabs([f"move{i}" for i in range(1, 6)])
@@ -29,13 +30,26 @@ import altair as alt
 #                 if res:
 #                     st.error(res)
 
-            
-x = {"a":1, "b":2, "c":3}
-y = list()
-y += x.keys() 
-print(y)
+fighterStatApi = sgm.FighterStatistics()
+moveStatApi = sgm.MoveStatistics()
+buffManage = sgm.BuffStatistics()
 
-ff = [0 for x  in range(5)]
-print(ff)
+fighter = sgm.Fighter('Default',fighterStatApi,2)
 
 
+
+# index = 0
+# for item, v in stat.items():
+#     index  += 1
+#     stat[item] = [v, index]
+
+# df = pd.DataFrame(
+#     stat)
+
+# fig = px.line(df,
+#               markers=True,
+#               labels={'index': 'X', 'value': 'Y'})
+# st.plotly_chart(fig)
+
+fighter.getStats()
+print(fighter.stat)

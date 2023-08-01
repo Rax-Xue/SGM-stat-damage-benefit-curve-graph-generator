@@ -147,6 +147,10 @@ def page_damageCalulator():
                 
         # Remove overlapped lines
         mergedDamge = merge_keys_with_same_value(damage)
+        for key in list(mergedDamge.keys()):
+            if len(key) >= 10:
+                newKey = key.split(',')[0] + ',Elses'
+                mergedDamge[newKey] = mergedDamge.pop(key)
 
         fig = px.line(
             mergedDamge,

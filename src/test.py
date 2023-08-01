@@ -51,5 +51,29 @@ fighter = sgm.Fighter('Default',fighterStatApi,2)
 #               labels={'index': 'X', 'value': 'Y'})
 # st.plotly_chart(fig)
 
-fighter.getStats()
-print(fighter.stat)
+# 示例用法
+def merge_keys_with_same_value(original_dict):
+    value_to_keys = {}
+    for key, value in original_dict.items():
+        value_key = tuple(value)
+        if value_key in value_to_keys:
+            value_to_keys[value_key].append(key)
+        else:
+            value_to_keys[value_key] = [key]
+
+    merged_dict = {}
+    for value, keys in value_to_keys.items():
+        if len(keys) == 1:
+            merged_dict[keys[0]] = list(value)
+        else:
+            merged_dict[",".join(keys)] = list(value)
+
+    return merged_dict
+
+# 示例用法
+my_dict = {'a': [1, 2], 'b': [3, 4], 'c': [5, 6], 'd': [1, 2]}
+merged_dict = merge_keys_with_same_value(my_dict)
+
+print(merged_dict)
+
+

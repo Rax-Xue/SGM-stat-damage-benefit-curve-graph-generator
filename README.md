@@ -16,14 +16,15 @@ To  run:
 streamlit run Main.py
 ```
 
-Also app version can be accessed in [here](https://sgm-damage-curve-generator.streamlit.app/), and if you are already here see side bar in the right
+Also app version can be accessed in [here](https://sgm-damage-curve-generator.streamlit.app/), and if you are already here see side bar in the right.
 
 ### Todo
 
-[x] add gui to change values
-- add debuffs' influence
-- add move selection part
-- more flexible and high efficient code format to provide more functions
+- [x] add gui to change values
+- [ ] add move selection part
+- [ ] add buffs' influence
+- [ ] add SA along with fighter database
+- [ ] more flexible and high efficient code format to provide more functions
 
 ### Ref
 

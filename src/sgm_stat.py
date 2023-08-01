@@ -87,7 +87,13 @@ class Fighter():
 
     CAP_STAT = {'ATK' : np.Infinity, 'HP' : np.Infinity, 'PIERCE' : 50, 'ACC' : 50, 'ELEBONUS' : 50, 'TAGCD' : 50, 'BLKEFF' : 100, 'CRATE' : 100, 'CDMG' : 200, 'DEF' : 50, 'RESIST' : 50, 'ELEPENAL' : 20, 'SMCD' : 50, 'METER' : 100, 'CRESIST' : 100}
 
+    STAT_ATK = ['ATK', 'PIERCE', 'CRATE', 'CDMG', 'ELEBONUS']
+
     STAT_DEF = ['BLKEFF', 'DEF', 'RESIST', 'CRESIST']
+
+    ELEMENT_LIST = {'fire' : 1000, 'wind' : 1010, 'water' : 1020, 'light' : 1, 'dark' : -1, 'neutral' : 0}
+    
+    BASE_ELEPENAL = -20
 
     MAX_MOVE_NUMBER = 5
     def __init__(self,
@@ -172,13 +178,29 @@ class Fighter():
         # cap stats
         for k,v in self.stat.items():         
             if k != 'ATK' or k != 'HP':
-                self.stat[k] = v if v < self.CAP_STAT[k] else self.CAP_STAT[k]                        
+                self.stat[k] = v if v < self.CAP_STAT[k] else self.CAP_STAT[k]
+
+        return self.stat
 
     def setStat(self, stat:str, value:int):
         if stat in self.stat:
             self.stat[stat] = value if value < self.CAP_STAT[stat] else self.CAP_STAT[stat] 
         else:
             return f'no stat named{stat}'
+        
+    def elementCalculator(self, ele_fighter, ele_opponent):
+        f = self.ELEMENT_LIST.get(ele_fighter)
+        p = self.ELEMENT_LIST.get(ele_opponent)
+        if f == 0 or p == 0:
+            return 0  # one is neutral
+        if f+p == 0:
+            return 1  # dark-light pair
+        elif f-p == -10 or f-p == 20:
+            return 1 # advange loop in triple
+        elif f-p == 10 or f-p == -20:
+            return -1 # the reverse in triple
+        else:
+            return 0
 
 
 class BuffStatistics():
@@ -215,22 +237,6 @@ class BuffStatistics():
         opponent_stat
 
 
-def elementCalculator(ele_fighter, ele_opponent):
-    ELEMENT_LIST = {'fire' : 1000, 'wind' : 1010, 'water' : 1020, 'light' : 1, 'dark' : -1, 'neutral' : 0}
-    
-    f = ELEMENT_LIST.get(ele_fighter)
-    p = ELEMENT_LIST.get(ele_opponent)
-    if f == 0 or p == 0:
-        return 0  # one is neutral
-    if f+p == 0:
-        return 1  # dark-light pair
-    elif f-p == -10 or f-p == 20:
-        return 1 # advange loop in triple
-    elif f-p == 10 or f-p == -20:
-        return -1 # the reverse in triple
-    else:
-        return 0
-
 
 class DamageCalculator():
     BAD_FORMULA_FIGHTER_LIST = ['Flytrap', 'Jawbreaker', 'Purrminator']  # whose sa apply on base atk only
@@ -256,7 +262,7 @@ class DamageCalculator():
         else:
             atkDamageWithSaBonus = F.ATK_RAW*(F.stat['ATK'] + 100)/100.0*(F.fsManage.getSABonus(F.name) + 100)/100.0
 
-        moveScale = self.moveManage.getTotalScale(F.name)
+        moveScale = self.moveManage.getTotalScale(F.name)/100.0
         bonus = 100/100.0 #FIXME
         
         # crit part
@@ -266,15 +272,15 @@ class DamageCalculator():
         critExpect = (1-crate) + crate*cdmg
         
         # element part
-        ele_adv = elementCalculator(F.ELEMENT, D.ELEMENT)
-        elementEffect = ele_adv*(F.stat['ELEBONUS'] + 100)/100.0 if ele_adv > 0 else (100-F.stat['ELEPENAL'])/100.0
+        ele_adv = F.elementCalculator(F.ELEMENT, D.ELEMENT)
+        elementEffect = ele_adv*(F.stat['ELEBONUS'] + 100)/100.0 if ele_adv > 0 else (100 + F.BASE_ELEPENAL + F.stat['ELEPENAL'])/100.0
         elementEffect = elementEffect if ele_adv != 0 else 1.0
 
         # defense part
         penetration = F.stat['PIERCE'] - D.stat['DEF']
         penetration = penetration if penetration < 0 else 0
        
-        penetration = (100 + penetration)/100.0 if 'DEADEYE' in self.buffManage.buff else 1.0 
+        penetration = (100 + penetration)/100.0 if 'DEADEYE' not in self.buffManage.buff else 1.0 
 
         # damage formula
         self.damage = atkDamageWithSaBonus*moveScale*bonus*critExpect*elementEffect*penetration

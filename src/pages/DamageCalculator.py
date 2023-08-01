@@ -3,11 +3,30 @@ import numpy as np
 import pandas as pd
 import copy
 import plotly.express as px
+from utils import show_code
 
 import sgm_stat as sgm
 
 def getRandomColor():
     return np.array((np.random.random(), np.random.random(), np.random.random())).reshape(1,-1)
+
+def merge_keys_with_same_value(original_dict):
+    value_to_keys = {}
+    for key, value in original_dict.items():
+        value_key = tuple(value)
+        if value_key in value_to_keys:
+            value_to_keys[value_key].append(key)
+        else:
+            value_to_keys[value_key] = [key]
+
+    merged_dict = {}
+    for value, keys in value_to_keys.items():
+        if len(keys) == 1:
+            merged_dict[keys[0]] = list(value)
+        else:
+            merged_dict[",".join(keys)] = list(value)
+
+    return merged_dict
 
 def page_damageCalulator():
 
@@ -26,14 +45,20 @@ def page_damageCalulator():
         with col1:
             st.write("## Fighter")
             # choose fighter
-            fighterName = st.selectbox('Choose a fighter: ', fighterStatApi.getFighterNameList(), index=0, key='fighterSelector')
+            # TODO: add later
+            #fighterName = st.selectbox('Choose a fighter: ', fighterStatApi.getFighterNameList(), index=0, key='fighterSelector')
+            
+            # temporary input
+            fighterName = "Default"
+            fighterElement = st.selectbox('Choose fighter element', sgm.Fighter.ELEMENT_LIST.keys(), index=0, key='fighterElementSelector')
             F = sgm.Fighter(fighterName, fighterStatApi)
+            F.ELEMENT = fighterElement
 
             # choose moves
             tab_moves = st.tabs([f"move{i}" for i in range(1, 6)])
             for index, tab_move in enumerate(tab_moves):
                 with tab_move:
-                    move_statList = st.multiselect('Choose move stats',sgm.Move.STAT_LIST, key=f'moveStatSelect{index}')
+                    move_statList = st.multiselect(f'Choose move stats with {sgm.Move.STAT_SLOT} at most',sgm.Move.STAT_LIST, key=f'moveStatSelect{index}')
                     if len(move_statList) > sgm.Move.STAT_SLOT:
                         move_statList = move_statList[:sgm.Move.STAT_SLOT]
                     st.subheader(f"Move{index+1} rerolls")
@@ -55,8 +80,14 @@ def page_damageCalulator():
         with col2:  
             st.write("## Opponent")
             # choose opponent
-            opponentName = st.selectbox('Choose an opponent: ', fighterStatApi.getFighterNameList(), index=0, key='opponentSelector')
+            # TODO
+            #opponentName = st.selectbox('Choose an opponent: ', fighterStatApi.getFighterNameList(), index=0, key='opponentSelector')
+            
+            # temporary input
+            opponentName = "Default"
+            opponentElement = st.selectbox('Choose opponent element', sgm.Fighter.ELEMENT_LIST.keys(), index=0, key='opponentElementSelector')
             D = sgm.Fighter(opponentName, fighterStatApi)
+            D.ELEMENT = opponentElement
             
             # setup deffense stats
             st.subheader("Defense Stats")
@@ -79,6 +110,7 @@ def page_damageCalulator():
         damage = copy.deepcopy(F.BASE_STAT)
 
         # starter
+        F.getStats()
         for item in damage:
             damage[item] = [dc.damageFormula()]
         
@@ -91,79 +123,66 @@ def page_damageCalulator():
             status_text.text("%i%% Complete" % perProg)
 
             for index, move in enumerate(F.moveSetFake):
-                if move == 0:
+                if move == 0:  # if no new move
                     F.equipMoveFake(sgm.Move(),index) # add one new move
-                    move = F.moveSetFake[index]
+                    move = F.moveSetFake[index]  # replace the move item with the fake one
                 rerollTime = move.rerollTime
 
-                keys = move.getMoveStat().keys()
-                if key not in keys:
-                    if len(keys) >= 3:
-                        continue
-                    else:
-                        F.moveSetFake[index].stat[key] = 0                    
+                keys = move.getMoveStat().keys()                                   
+
+                if key not in keys and len(keys) < 3:
+                    F.moveSetFake[index].stat[key] = 0
 
                 for i in range(1, rerollTime+1):
                     if rerollTime != 0:
-                        F.moveSetFake[index].stat[key] += 1
-                        F.getStatusFake()
-                        dmgPoint = dc.damageFormula()
+                        if key not in keys and len(keys) >= 3:
+                            dmgPoint = None
+                        else:
+                            F.moveSetFake[index].stat[key] += 1
+                            F.getStatusFake()
+                            dmgPoint = dc.damageFormula()
                         damage[key] += [dmgPoint]
 
             progress_bar.progress(perProg)
-
-
-
-        # for index, move in enumerate(F.moveSet):
-        #     if move == 0:
-        #         rerollTime = sgm.Move.MAXLVLTIME
-        #         F.equipMove(sgm.Move(),index) # add one new move
-        #         move = F.moveSet[index]
-        #     else:
-        #         rerollTime = move.rerollTime
-
-        #     keys = move.getMoveStat().keys()
-
-        #     for i in range(1, rerollTime+1):
-        #         if rerollTime == 0:
-        #             perProg = int(progPerMove*(index+1))
-        #             status_text.text("%i%% Complete" % perProg)
-        #         else:
-        #             perProg = int(progPerMove*index +  progPerMove/rerollTime*i)
-        #             status_text.text("%i%% Complete" % perProg)
-
-        #             for key in F.stat.keys():
-        #                 if len(keys) == 3 and (key not in keys):
-        #                     dmgPoint = None
-        #                 else:
-        #                     F.moveSetFake[index].stat[key]
-
-
-        #                     F.moveSet[index].stat[key] = i
-        #                     F.equipMove(F.moveSet[index], index)  # replace old with updated move
-        #                     dmgPoint = dc.damageFormula()
-        #                 damage[key] += [dmgPoint]
-
-        #         progress_bar.progress(perProg)
                 
+        # Remove overlapped lines
+        mergedDamge = merge_keys_with_same_value(damage)
+
         fig = px.line(
-            damage,
+            mergedDamge,
             markers=True,
             labels={'index': 'Move Reroll Time', 'value' : 'Damage', 'variable' : 'STATs'},
-            height=800
+            height=650
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
-        F.getStats()
-        print(F.stat)
-        name, form = st.columns([1,4])
-        with name:
-            st.subheader("Fighter Status")
-        with form:
-            st.dataframe(pd.DataFrame(F.stat, index=[0]))
+        fighterStat = F.getStats()
+        fighterStatATK = dict()
+        for item in list(fighterStat.keys()):
+            if item in sgm.Fighter.STAT_ATK:
+                fighterStatATK[item] = fighterStat.pop(item)
+
+    #print(F.stat)
+    name, formATK, formELSE = st.columns([1,2,3])
+    with name:
+        st.subheader("Fighter Status")
+    with formATK:
+        st.dataframe(pd.DataFrame(fighterStatATK, index=[0]), column_order=sgm.Fighter.STAT_ATK)
+    with formELSE:
+        st.dataframe(pd.DataFrame(fighterStat, index=[0]))
 
     progress_bar.empty()
+
+
+    with st.expander('See Help'):
+        f = open("help_damageCalculator.md")
+        content = f.read()
+        st.markdown(content)
+        st.subheader('Damage Formula Code')
+        show_code(sgm.DamageCalculator.damageFormula)
+
+
 
 pageName = sgm.DamageCalculator.__name__
 st.set_page_config(page_title=pageName, page_icon="", layout='wide')
